@@ -386,6 +386,12 @@ repeating-linear-gradient(9deg,rgba(255,255,255,.08) 0 7px,transparent 7px 24px)
 .course-map-toolbar .chip,.world-map-toolbar .chip{margin:0}
 .map-source-note{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.35;font-weight:750}
 .map-source-note b{color:#e8fff2}
+.map-layer-switch{display:inline-flex;align-items:center;gap:6px;padding:5px;border:1px solid rgba(248,211,106,.25);border-radius:999px;background:rgba(0,0,0,.18);box-shadow:inset 0 1px rgba(255,255,255,.12)}
+.map-layer-btn{appearance:none;-webkit-appearance:none;border:1px solid transparent;border-radius:999px;background:transparent;color:#dff8eb;padding:8px 12px;font-weight:950;cursor:pointer;min-height:34px;line-height:1}
+.map-layer-btn:hover{border-color:rgba(248,211,106,.45);color:var(--gold)}
+.map-layer-btn.active{background:linear-gradient(135deg,#f8d36a,#b8892c);border-color:rgba(248,211,106,.55);color:#102115;box-shadow:0 10px 24px rgba(0,0,0,.22)}
+.map-layer-btn:focus-visible{outline:3px solid rgba(248,211,106,.75);outline-offset:2px}
+.layer-help{color:var(--muted);font-size:12px;font-weight:850}
 .map-popup{min-width:220px;color:#102115}.map-popup b{display:block;font-size:15px;margin-bottom:4px}.map-popup span{display:block;color:#486756;font-size:12px;margin:2px 0 8px}.map-popup button{border:0;border-radius:999px;background:#0b6f43;color:#fff;font-weight:900;padding:8px 10px;cursor:pointer}.map-popup button:hover{background:#095b38}.leaflet-marker-icon.premium-course-marker{filter:drop-shadow(0 8px 16px rgba(0,0,0,.4))}
 @media(max-width:900px){.map-panel.leaflet-upgrade{min-height:520px;padding:12px;overflow:visible}.leaflet-world-map{height:480px;min-height:420px}.leaflet-course-map{height:390px;min-height:330px}.course-map-toolbar,.world-map-toolbar{align-items:flex-start}.leaflet-control-layers-expanded{max-width:210px}}
 @media(max-width:560px){.map-panel.leaflet-upgrade{min-height:470px}.leaflet-world-map{height:420px;min-height:380px;border-radius:18px}.leaflet-course-map{height:340px;min-height:300px;border-radius:18px}.map-source-note{font-size:11px}.leaflet-control-layers-expanded{max-width:190px;font-size:12px}.leaflet-popup-content{margin:10px}}
@@ -1750,6 +1756,30 @@ init();
   function markerIcon(){
     return L.divIcon({className:'premium-course-marker', html:'<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#f8d36a,#61f2a2);border:2px solid white;box-shadow:0 6px 18px rgba(0,0,0,.38);display:grid;place-items:center;color:#102115;font-weight:950;font-size:14px">⛳</div>', iconSize:[26,26], iconAnchor:[13,13]});
   }
+  const leafletMapRegistry = {};
+  function updateLayerButtons(id, activeKey){
+    document.querySelectorAll('[data-map-target="' + id + '"]').forEach(btn=>{
+      const isActive = btn.getAttribute('data-layer') === activeKey;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+  window.setLeafletMapLayer = function(id, key){
+    const rec = leafletMapRegistry[id];
+    if(!rec || !rec.map || !rec.layers) return;
+    const nextKey = rec.layers[key] ? key : 'osm';
+    Object.keys(rec.layers).forEach(k=>{
+      try{ if(rec.map.hasLayer(rec.layers[k])) rec.map.removeLayer(rec.layers[k]); }catch(e){}
+    });
+    rec.layers[nextKey].addTo(rec.map);
+    rec.current = nextKey;
+    updateLayerButtons(id, nextKey);
+    setTimeout(()=>{ try{ rec.map.invalidateSize(); }catch(e){} }, 80);
+  };
+  function registerLeafletMap(id, map, layers, initialKey){
+    leafletMapRegistry[id] = {map, layers, current:null};
+    window.setLeafletMapLayer(id, initialKey);
+  }
   function initSingleCourseMap(el){
     if(!el || el.dataset.ready === '1') return;
     el.dataset.ready = '1';
@@ -1760,8 +1790,7 @@ init();
     try{
       const layers = tileLayers();
       const map = L.map(el, {scrollWheelZoom:false, tap:true}).setView([lat,lng], 16);
-      layers.sat.addTo(map);
-      L.control.layers({'Karte':layers.osm,'Satellit':layers.sat}, null, {collapsed:false, position:'topright'}).addTo(map);
+      registerLeafletMap(el.id, map, layers, 'sat');
       L.marker([lat,lng], {icon:markerIcon()}).addTo(map).bindPopup('<div class="map-popup"><b>'+escLocal(course)+'</b><span>'+escLocal(region)+' · '+escLocal(country)+'</span></div>');
       setTimeout(()=>map.invalidateSize(), 250);
     }catch(e){
@@ -1774,7 +1803,7 @@ init();
     const [lat,lng] = getCoord(course, country);
     const openUrl = window.mapsOpenUrl(course, region, country);
     const id = 'leafletCourseMap_' + Math.random().toString(36).slice(2,10);
-    return `<div class="media-box"><div class="media-box-head"><span>Platzplan / Lageübersicht</span><span class="chip green">Karte + Satellit</span></div><div class="media-box-body"><div class="course-map-toolbar"><span class="chip gold">Standard: Satellitenfoto</span><span class="chip">Umschalter: Karte | Satellit</span></div><div id="${id}" class="leaflet-course-map" data-course="${attrLocal(course)}" data-region="${attrLocal(region)}" data-country="${attrLocal(country)}" data-lat="${lat}" data-lng="${lng}"></div><div class="media-caption"><span><strong>Karten-Übersicht:</strong> Die Detailkarte startet mit Satellitenfoto und kann oben rechts auf normale Karte umgeschaltet werden.</span><div class="media-links"><a class="media-link" href="${attrLocal(openUrl)}" target="_blank" rel="noopener">🗺 Karte extern öffnen</a></div></div><div class="map-source-note"><b>Kartenquellen:</b> OpenStreetMap-Karte und Esri World Imagery Satelliten-/Luftbilder. Für die beste Darstellung ist eine Internetverbindung erforderlich.</div></div></div>`;
+    return `<div class="media-box"><div class="media-box-head"><span>Platzplan / Lageübersicht</span><span class="chip green">Karte + Satellit</span></div><div class="media-box-body"><div class="course-map-toolbar"><div><span class="chip gold">Standard: Satellitenfoto</span><span class="layer-help"> Ansicht per Button umschalten</span></div><div class="map-layer-switch" role="group" aria-label="Kartenansicht umschalten"><button type="button" class="map-layer-btn" data-map-target="${id}" data-layer="osm" onclick="setLeafletMapLayer('${id}','osm')">Karte</button><button type="button" class="map-layer-btn active" data-map-target="${id}" data-layer="sat" onclick="setLeafletMapLayer('${id}','sat')">Satellit</button></div></div><div id="${id}" class="leaflet-course-map" data-course="${attrLocal(course)}" data-region="${attrLocal(region)}" data-country="${attrLocal(country)}" data-lat="${lat}" data-lng="${lng}"></div><div class="media-caption"><span><strong>Karten-Übersicht:</strong> Die Detailkarte startet mit Satellitenfoto. Die Umschaltung erfolgt über die Buttons direkt oberhalb der Karte.</span><div class="media-links"><a class="media-link" href="${attrLocal(openUrl)}" target="_blank" rel="noopener">🗺 Karte extern öffnen</a></div></div><div class="map-source-note"><b>Kartenquellen:</b> OpenStreetMap-Karte und Esri World Imagery Satelliten-/Luftbilder. Für die beste Darstellung ist eine Internetverbindung erforderlich.</div></div></div>`;
   };
   window.showCourse = function(course){
     const c = DATA.courses.find(x=>x.course===course); if(!c) return;
@@ -1784,14 +1813,13 @@ init();
   window.renderMap = function(){
     const panel = document.getElementById('mapPanel'); if(!panel) return;
     panel.classList.add('leaflet-upgrade');
-    panel.innerHTML = `<div class="world-map-toolbar"><div><span class="chip gold">Golfplatz-Weltkarte</span><span class="chip green">Satellit zuschaltbar</span></div><span class="chip">${DATA.courses.length} Golfplätze</span></div><div id="globalLeafletMap" class="leaflet-world-map"></div><div class="map-source-note"><b>Bedienung:</b> Oben rechts zwischen Karte und Satellit wechseln. Marker anklicken, um den Golfplatz direkt zu öffnen.</div>`;
+    panel.innerHTML = `<div class="world-map-toolbar"><div><span class="chip gold">Golfplatz-Weltkarte</span><span class="chip green">Satellit zuschaltbar</span><span class="chip">${DATA.courses.length} Golfplätze</span></div><div class="map-layer-switch" role="group" aria-label="Kartenansicht umschalten"><button type="button" class="map-layer-btn active" data-map-target="globalLeafletMap" data-layer="osm" onclick="setLeafletMapLayer('globalLeafletMap','osm')">Karte</button><button type="button" class="map-layer-btn" data-map-target="globalLeafletMap" data-layer="sat" onclick="setLeafletMapLayer('globalLeafletMap','sat')">Satellit</button></div></div><div id="globalLeafletMap" class="leaflet-world-map"></div><div class="map-source-note"><b>Bedienung:</b> Direkt oberhalb der Karte zwischen Karte und Satellit wechseln. Marker anklicken, um den Golfplatz direkt zu öffnen.</div>`;
     ensureLeaflet(()=>{
       const el = document.getElementById('globalLeafletMap'); if(!el || el.dataset.ready === '1') return; el.dataset.ready='1';
       try{
         const layers = tileLayers();
         const map = L.map(el, {scrollWheelZoom:false, tap:true}).setView([28, 12], 2);
-        layers.osm.addTo(map);
-        L.control.layers({'Karte':layers.osm,'Satellit':layers.sat}, null, {collapsed:false, position:'topright'}).addTo(map);
+        registerLeafletMap(el.id, map, layers, 'osm');
         const bounds = [];
         DATA.courses.forEach(c=>{
           const [lat,lng] = getCoord(c.course, c.country);
