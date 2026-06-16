@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b2418" />
-<title>Mario's Golf-Cockpit – Cloud-Sync & Experience Edition</title>
+<title>Mario's Golf-Cockpit – Cloud-Sync, Experience & Swiss Photo Edition</title>
 <style>
 :root{
   --bg:#061710; --bg2:#0b2418; --panel:rgba(255,255,255,.08); --panel2:rgba(255,255,255,.12);
@@ -366,6 +366,12 @@ repeating-linear-gradient(9deg,rgba(255,255,255,.08) 0 7px,transparent 7px 24px)
 }
 </style>
 
+
+<style id="swiss-player-photo-upgrade-css">
+/* Swiss Ranking Foto-Upgrade */
+.ranking-player-cell{display:flex;align-items:center;gap:12px;min-width:250px}.ranking-player-main{display:grid;gap:4px}.ranking-player-main b{line-height:1.18}.ranking-avatar{position:relative;flex:0 0 52px;width:52px;height:52px;border-radius:16px;overflow:hidden;display:grid;place-items:center;border:1px solid rgba(248,211,106,.38);background:linear-gradient(135deg,rgba(248,211,106,.24),rgba(97,242,162,.16));box-shadow:0 12px 30px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.22);color:#f8d36a;font-weight:950;font-size:13px;letter-spacing:.04em}.ranking-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}.ranking-avatar.missing{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#cfe8da}.photo-source-chip{display:inline-flex;align-items:center;gap:5px;width:max-content;padding:4px 8px;border-radius:999px;border:1px solid rgba(248,211,106,.28);background:rgba(248,211,106,.10);color:#f8d36a!important;text-decoration:none!important;font-size:10px;font-weight:950;letter-spacing:.04em;text-transform:uppercase}.photo-source-chip:hover{border-color:rgba(248,211,106,.6);background:rgba(248,211,106,.17)}.team-card .ranking-player-cell{margin:10px 0 14px}.team-card .ranking-avatar{width:64px;height:64px;flex-basis:64px;border-radius:20px}.media-frame.player-photo img{object-fit:cover;object-position:center}.media-placeholder.photo-upgrade-note b{font-size:24px;color:#f8d36a}.media-links .photo-source-chip{margin-right:6px}@media(max-width:620px){.ranking-player-cell{min-width:220px;gap:10px}.ranking-avatar{width:46px;height:46px;flex-basis:46px;border-radius:14px}.photo-source-chip{font-size:9px;padding:4px 7px}}
+</style>
+
 </head>
 <body>
 <section class="hero" id="home">
@@ -563,15 +569,25 @@ function shortName(name){return name.split(' ').slice(-1)[0]}
 
 function slug(s){return String(s||'idee').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,80) || 'idee'}
 function nowIso(){return new Date().toISOString()}
-function getDataStamp(){
-  const raw = String(DATA.generated || new Date().toLocaleDateString('de-CH')).trim();
-  const iso = raw.match(/\b\d{4}-\d{2}-\d{2}\b/);
-  if(iso){
-    const [y,m,d] = iso[0].split('-');
-    return `${d}.${m}.${y}`;
+function normaliseDateStamp(raw){
+  raw = String(raw || '').trim();
+  if(!raw) return '';
+  const iso = raw.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if(iso) return `${iso[3]}.${iso[2]}.${iso[1]}`;
+  const swissDate = raw.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
+  if(swissDate){
+    const d = swissDate[1].padStart(2,'0');
+    const m = swissDate[2].padStart(2,'0');
+    return `${d}.${m}.${swissDate[3]}`;
   }
-  const swissDate = raw.match(/\b\d{1,2}\.\d{1,2}\.\d{4}\b/);
-  if(swissDate) return swissDate[0];
+  return '';
+}
+function getDataStamp(){
+  const syncDate = (syncSettings && syncSettings.enabled) ? normaliseDateStamp(syncSettings.lastSyncAt) : '';
+  if(syncDate) return syncDate;
+  const raw = String(DATA.generated || new Date().toLocaleDateString('de-CH')).trim();
+  const parsed = normaliseDateStamp(raw);
+  if(parsed) return parsed;
   return raw.replace(/\s*[·\-–—|]\s*CH-Ranking.*$/i,'').trim();
 }
 function getLocalUpdatedAt(){return localStorage.getItem(lastChangeKey) || '1970-01-01T00:00:00.000Z'}
@@ -623,6 +639,8 @@ function scheduleCloudPush(){
   syncTimer=setTimeout(()=>cloudPush(false),1400);
 }
 function updateSyncMini(){
+  const stampEl=qs('#dateStamp');
+  if(stampEl) stampEl.textContent=getDataStamp();
   const el=qs('#syncMini'); if(!el) return;
   if(syncSettings && syncSettings.enabled){el.className='mini-sync on'; el.textContent='Cloud-Sync aktiv · letzter Stand: '+(syncSettings.lastSyncAt||'noch nicht synchronisiert');}
   else {el.className='mini-sync warn'; el.textContent='Lokaler Modus · Cloud-Sync im Aktualisierungscenter aktivierbar';}
@@ -1325,5 +1343,355 @@ function showCourse(course){
 }
 init();
 </script>
+
+<script id="swiss-player-photo-upgrade-js">
+(function(){
+  const VERIFIED_SWISS_PLAYER_PHOTOS = {
+  "Joel Girrbach": {
+    "image": "https://api.bo.swisspga.ch/user/image/15802979/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/156?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Ronan Kleu": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804735/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/555?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Benjamin Rusch": {
+    "image": "https://api.bo.swisspga.ch/user/image/15802982/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/331?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Mauro Gilardi": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803128/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/155?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Cédric Gugler": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803138/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/169?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Jeremy Freiburghaus": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803053/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/142?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Luca Galliano": {
+    "image": "https://api.bo.swisspga.ch/user/image/15802966/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/147?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Robert Foley": {
+    "image": "https://www.progolftour.de/press-detail/foley-finds-recipe-for-success-and-wins-in-bad-homburg?file=files%2Fpgt%2FSaison_2024%2F09_Royal+Homburger+Open+2024%2FPM%2FRobertFoley-Swing-Golfsupportnl.jpg",
+    "pageUrl": "https://www.progolftour.de/press-detail/foley-finds-recipe-for-success-and-wins-in-bad-homburg",
+    "source": "Pro Golf Tour Pressefoto",
+    "description": "Verifiziertes Pressefoto aus einem Pro-Golf-Tour-Bericht zu Robert Foley."
+  },
+  "Alessandro Noseda": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803083/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/288?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Fiorino Clerici": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803109/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/94?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Jordan Prutthaweewat": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803134/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/305?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Loïc Naas": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804752/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/570?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Mel Lötscher": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804628/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/458?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Sasha Wortelboer": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803104/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/412?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Loïc Ettlin": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804728/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/545?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Jean-Leon Aeschlimann": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804756/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/574?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Jonathan Jasper Sikora": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803160/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/354?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Marco Iten": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803026/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/201?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Michael Weppernig": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803135/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/403?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Mike Saxer": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803106/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/339?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Zeno Felder": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803003/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/132?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Léo Andeer": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803100/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/10?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Mathias Eggenberger": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803025/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/125?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Loris Schüpbach": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803114/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/352?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Chiara Tamburlini": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804630/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/461?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Albane Valenzuela": {
+    "image": "https://media.rolex.com/image/upload/q_auto%3Aeco/f_auto/c_limit%2Cw_1920/v1733500145/rolexcom/rolex-testimonees/sports/golf/albane-valenzuela/rolex-and-testimonies-golf-albane-valenzuela-evianc23ct_0709",
+    "pageUrl": "https://www.rolex.org/world-of-rolex/golf/testimonees/albane-valenzuela",
+    "source": "Rolex Testimonee Profil",
+    "description": "Verifiziertes offizielles Profilbild von Albane Valenzuela."
+  },
+  "Morgane Métraux": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803049/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/260?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Kim Métraux": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803048/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/259?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Elena Moosmann": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803130/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/272?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Tiffany Arafi": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803131/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/12?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Anais Maggetti": {
+    "image": "https://api.bo.swisspga.ch/user/image/15802930/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/244?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Nathalie Armbrüster": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804724/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/531?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Elena Colombo": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803136/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/97?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Christina Gloor": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803086/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/157?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Priscilla Schmid": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803105/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/346?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Charlotte Alran": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803118/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/7?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Vanessa Knecht": {
+    "image": "https://api.bo.swisspga.ch/user/image/15803139/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/210?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  },
+  "Caroline Sturdza": {
+    "image": "https://api.bo.swisspga.ch/user/image/15804729/8721255%2C1793061",
+    "pageUrl": "https://swisspga.ch/spieler-detail/547?year=2026",
+    "source": "Swiss PGA Spielerprofil",
+    "description": "Offizielles Spielerfoto aus dem Swiss-PGA-Profil."
+  }
+};
+  const SWISS_PHOTO_UPGRADE_VERSION = '2026-06-16';
+  function swissPhotoNormalize(value){
+    return String(value||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase().replace(/^-+|-+$/g,'');
+  }
+  const PHOTO_INDEX = Object.create(null);
+  Object.keys(VERIFIED_SWISS_PLAYER_PHOTOS).forEach(function(name){ PHOTO_INDEX[swissPhotoNormalize(name)] = Object.assign({title:name}, VERIFIED_SWISS_PLAYER_PHOTOS[name]); });
+  function safeText(value){
+    if(typeof esc === 'function') return esc(value);
+    return String(value ?? '').replace(/[&<>"']/g, function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});
+  }
+  function safeAttr(value){
+    if(typeof escapeAttr === 'function') return escapeAttr(value);
+    return safeText(value).replace(/`/g,'&#96;');
+  }
+  function swissPhotoRecord(name){ return PHOTO_INDEX[swissPhotoNormalize(name)] || null; }
+  function swissInitials(name){
+    const parts = String(name||'').trim().split(/\s+/).filter(Boolean);
+    if(!parts.length) return 'CH';
+    return (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : '')).toUpperCase();
+  }
+  function rankingAvatar(name){
+    const rec = swissPhotoRecord(name);
+    const initials = safeText(swissInitials(name));
+    if(rec && rec.image){
+      return `<span class="ranking-avatar" title="Foto: ${safeAttr(rec.source||'verifizierte Quelle')}"><img src="${safeAttr(rec.image)}" alt="${safeAttr(name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.ranking-avatar').classList.add('missing');this.remove();">${initials}</span>`;
+    }
+    return `<span class="ranking-avatar missing" title="Kein eindeutig verifiziertes Foto">${initials}</span>`;
+  }
+  function rankingPhotoSource(name){
+    const rec = swissPhotoRecord(name);
+    if(rec && rec.pageUrl) return `<a class="photo-source-chip" href="${safeAttr(rec.pageUrl)}" target="_blank" rel="noopener">Fotoquelle</a>`;
+    return `<span class="photo-source-chip" aria-label="Kein Foto gefunden">Kein Foto</span>`;
+  }
+  function rankingPlayerCell(name){
+    return `<div class="ranking-player-cell">${rankingAvatar(name)}<div class="ranking-player-main"><b>${safeText(name)}</b>${rankingPhotoSource(name)}</div></div>`;
+  }
+  window.swissPhotoRecord = swissPhotoRecord;
+  window.VERIFIED_SWISS_PLAYER_PHOTOS = VERIFIED_SWISS_PLAYER_PHOTOS;
+
+  const previousResolveSwissPlayerMedia = (typeof resolveSwissPlayerMedia === 'function') ? resolveSwissPlayerMedia : null;
+  resolveSwissPlayerMedia = async function(name, country, team={}, group=''){
+    const rec = swissPhotoRecord(name);
+    if(rec && rec.image){
+      return {
+        image: rec.image,
+        pageUrl: rec.pageUrl || '',
+        title: rec.title || name,
+        description: rec.description || 'Verifiziertes Spielerfoto aus einer offiziellen oder tournahen Quelle.',
+        extract: 'Quelle manuell geprüft und im Cockpit hinterlegt. Fallback-Suche über Wikipedia/Commons bleibt aktiv.',
+        source: rec.source || 'Verifizierte Fotoquelle',
+        verified: true,
+        upgradeVersion: SWISS_PHOTO_UPGRADE_VERSION
+      };
+    }
+    if(previousResolveSwissPlayerMedia) return previousResolveSwissPlayerMedia(name, country, team, group);
+    return {image:'', pageUrl:'', title:'', description:'', extract:'', source:''};
+  };
+
+  renderPhotoState = function(targetId, media, fallbackTitle, fallbackText){
+    const target = qs('#' + targetId); if(!target) return;
+    const lowerId = targetId.toLowerCase();
+    const isCourse = lowerId.includes('course');
+    const isPlan = lowerId.includes('plan');
+    if(media && media.image){
+      const linkHtml = media.pageUrl ? `<a class="media-link" href="${safeAttr(media.pageUrl)}" target="_blank" rel="noopener">🔎 Quelle öffnen</a>` : '';
+      const desc = media.description ? `<span><strong>Einordnung:</strong> ${safeText(media.description)}</span>` : '';
+      const extract = media.extract ? `<span>${safeText(media.extract)}</span>` : '';
+      const source = media.source ? `<span class="media-note">Bildquelle: ${safeText(media.source)}</span>` : '';
+      target.innerHTML = `<div class="media-frame ${isCourse?'course-photo':'player-photo'}"><img src="${safeAttr(media.image)}" alt="${safeAttr(fallbackTitle)}" loading="lazy" referrerpolicy="no-referrer"></div><div class="media-caption">${desc}${extract}${source}<div class="media-links">${linkHtml}</div></div>`;
+      const img = target.querySelector('img');
+      if(img) img.addEventListener('error', function(){
+        if(typeof renderNoSwissPlayerPhoto === 'function') renderNoSwissPlayerPhoto(targetId, fallbackTitle, {}, '');
+      });
+    } else {
+      const title = isPlan ? 'Kein Plan gefunden' : (isCourse ? 'Kein Foto vorhanden' : fallbackTitle);
+      const body = isPlan ? 'Für diesen Golfplatz konnte kein eindeutig verifizierter Platzplan gefunden werden.' : (fallbackText || 'Kein eindeutig passendes Bild gefunden.');
+      target.innerHTML = `<div class="media-frame ${isCourse?'course-photo':'player-photo'}"><div class="media-placeholder no-photo"><span class="chip gold">Medien</span><b>${safeText(title)}</b><p>${safeText(body)}</p></div></div>`;
+    }
+  };
+
+  renderNoSwissPlayerPhoto = function(targetId, playerName, team={}, group=''){
+    const target = qs('#' + targetId); if(!target) return;
+    const rec = swissPhotoRecord(playerName);
+    const query = (typeof swissPlayerSearchQuery === 'function') ? swissPlayerSearchQuery(playerName, team, group) : (playerName + ' Swiss golf');
+    const googleImg = (typeof googleImagesUrl === 'function') ? googleImagesUrl(query) : ('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(query));
+    const googleWeb = (typeof googleWebUrl === 'function') ? googleWebUrl(query) : ('https://www.google.com/search?q=' + encodeURIComponent(query));
+    const sourceLink = rec && rec.pageUrl ? `<a class="media-link" href="${safeAttr(rec.pageUrl)}" target="_blank" rel="noopener">🔎 Geprüfte Quelle öffnen</a>` : '';
+    target.innerHTML = `<div class="media-frame player-photo"><div class="media-placeholder no-photo photo-upgrade-note"><span class="chip gold">Spielerfoto</span><b>Kein eindeutig einbettbares Foto</b><p>Für diese Spielerin bzw. diesen Spieler wurde keine verlässlich einbettbare Bilddatei geladen. Quellen- und Google-Suche bleiben direkt verfügbar.</p></div></div><div class="media-caption"><span class="media-note">Es wird bewusst kein Ersatzbild angezeigt, wenn das Foto nicht eindeutig zur Person passt oder technisch nicht lädt.</span><div class="media-links">${sourceLink}<a class="media-link" href="${safeAttr(googleImg)}" target="_blank" rel="noopener">🔎 Google Bilder öffnen</a><a class="media-link" href="${safeAttr(googleWeb)}" target="_blank" rel="noopener">🌐 Google Suche öffnen</a></div></div>`;
+  };
+
+  renderSwiss = function(){
+    const data = (typeof DATA !== 'undefined') ? DATA : null; if(!data) return;
+    const men = (typeof swissLimit === 'function') ? swissLimit(data.swissMen,'swissMenLimit') : data.swissMen;
+    const women = (typeof swissLimit === 'function') ? swissLimit(data.swissWomen,'swissWomenLimit') : data.swissWomen;
+    const menTitle = qs('#swissMenTitle'), womenTitle = qs('#swissWomenTitle'), menCount = qs('#swissMenCount'), womenCount = qs('#swissWomenCount');
+    if(menTitle) menTitle.textContent = `${typeof swissLabel === 'function' ? swissLabel('swissMenLimit') : men.length} Herren Schweiz`;
+    if(womenTitle) womenTitle.textContent = `${typeof swissLabel === 'function' ? swissLabel('swissWomenLimit') : women.length} Damen Schweiz`;
+    if(menCount) menCount.textContent = `${men.length} von ${data.swissMen.length}`;
+    if(womenCount) womenCount.textContent = `${women.length} von ${data.swissWomen.length}`;
+    const buildRow=(d,group)=>`<tr class="clickable-row" onclick='showSwissPlayer(${JSON.stringify(group)},${JSON.stringify(d.player)})'><td class="rank">${safeText(d.rank)}</td><td>${rankingPlayerCell(d.player)}</td><td>${safeText(d.played ?? d.tournaments ?? '—')}</td><td class="score">${typeof fmt === 'function' ? fmt(d.score) : safeText(d.score)}</td><td>${safeText(d.movement || '—')}</td><td class="muted">${safeText(d.note)}</td></tr>`;
+    const menBody = qs('#swissMenTable tbody'), womenBody = qs('#swissWomenTable tbody');
+    if(menBody) menBody.innerHTML = men.map(d=>buildRow(d,'swissMen')).join('');
+    if(womenBody) womenBody.innerHTML = women.map(d=>buildRow(d,'swissWomen')).join('');
+  };
+
+  renderTeam = function(){
+    const data = (typeof DATA !== 'undefined') ? DATA : null; const grid = qs('#teamGrid'); if(!data || !grid) return;
+    grid.innerHTML = (data.swissTeam||[]).map(p=>{
+      const group = (data.swissWomen||[]).some(x=>x.player===p.player) ? 'swissWomen' : 'swissMen';
+      return `<div class="team-card interactive" onclick='showSwissPlayer(${JSON.stringify(group)},${JSON.stringify(p.player)})'><span class="chip green">${safeText(p.team)}</span>${rankingPlayerCell(p.player)}<dl><dt>Geboren</dt><dd>${safeText(p.born)}</dd><dt>Pro seit</dt><dd>${safeText(p.proSince)}</dd><dt>Club</dt><dd>${safeText(p.club)}</dd><dt>Tour</dt><dd>${safeText(p.tour)}</dd></dl></div>`;
+    }).join('');
+  };
+
+  try{ renderSwiss(); renderTeam(); }catch(err){ console.warn('Swiss photo upgrade render failed', err); }
+})();
+</script>
+
 </body>
 </html>
