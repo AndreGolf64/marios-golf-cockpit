@@ -1984,21 +1984,21 @@ init();
   };
 
   window.renderRanking = function(){
-    const term = (window.qs('#rankingSearch')?.value || '').toLowerCase().trim();
-    const country = window.qs('#rankingCountry')?.value || '';
-    const arr = (window.DATA?.[window.currentRanking] || []).filter(function(d){
+    const term = (qs('#rankingSearch')?.value || '').toLowerCase().trim();
+    const country = qs('#rankingCountry')?.value || '';
+    const arr = (DATA[currentRanking] || []).filter(function(d){
       return (!country || d.country===country) && (!term || (String(d.player)+' '+String(d.country)).toLowerCase().includes(term));
     });
-    const body = window.qs('#rankingTable tbody'); if(!body) return;
+    const body = qs('#rankingTable tbody'); if(!body) return;
     body.innerHTML = arr.map(function(d){
       const baseId = 'world-photo-' + norm(d.player);
-      return `<tr class="clickable-row" onclick='showPlayer(${JSON.stringify(window.currentRanking)},${JSON.stringify(d.rank)})'><td class="rank">${safeText(d.rank)}</td><td>${playerCellHtml(d.player, baseId + '-avatar', baseId + '-chip')}</td><td class="country">${safeText(d.country)}</td><td class="score">${typeof window.fmt === 'function' ? window.fmt(d.avg) : safeText(d.avg)}</td><td>${typeof window.fmt === 'function' ? window.fmt(d.total) : safeText(d.total)}</td><td>${safeText(d.events)}</td><td>${safeText(d.movement)}</td></tr>`;
+      return `<tr class="clickable-row" onclick='showPlayer(${JSON.stringify(currentRanking)},${JSON.stringify(d.rank)})'><td class="rank">${safeText(d.rank)}</td><td>${playerCellHtml(d.player, baseId + '-avatar', baseId + '-chip')}</td><td class="country">${safeText(d.country)}</td><td class="score">${typeof window.fmt === 'function' ? window.fmt(d.avg) : safeText(d.avg)}</td><td>${typeof window.fmt === 'function' ? window.fmt(d.total) : safeText(d.total)}</td><td>${safeText(d.events)}</td><td>${safeText(d.movement)}</td></tr>`;
     }).join('');
     hydrateWorldRankingPhotos(arr);
   };
 
   window.showPlayer = function(type, rank){
-    const d = (window.DATA?.[type] || []).find(function(x){ return x.rank===rank; }); if(!d) return;
+    const d = (DATA[type] || []).find(function(x){ return x.rank===rank; }); if(!d) return;
     const mediaId = 'worldPlayerMediaPanel';
     const label = type==='men' ? 'OWGR Herren' : 'Rolex Damen';
     const details = typeof window.worldPlayerDetails === 'function'
@@ -2016,7 +2016,7 @@ init();
 
   window.courseMapBox = stableCourseMapBox;
   window.showCourse = function(course){
-    const c = (window.DATA?.courses || []).find(function(x){ return x.course===course; }); if(!c) return;
+    const c = (DATA.courses || []).find(function(x){ return x.course===course; }); if(!c) return;
     const photoId = 'coursePhotoPanel';
     const details = `<div class="detail-grid"><div class="detail"><span>Löcher</span><b>${safeText(c.holes)}</b></div><div class="detail"><span>Par</span><b>${safeText(c.par)}</b></div><div class="detail"><span>Eröffnung</span><b>${safeText(c.opened)}</b></div><div class="detail"><span>Wow-Faktor</span><b>${safeText(c.wow)}/100</b></div><div class="detail"><span>Architekt</span><b style="font-size:16px">${safeText(c.architect)}</b></div><div class="detail"><span>Schwierigkeit</span><b>${safeText(c.difficulty)}/10</b></div><div class="detail"><span>Zugang</span><b style="font-size:16px">${safeText(c.access)}</b></div><div class="detail detail-source"><span>Quelle</span><b style="font-size:15px">${safeText(c.source)}</b></div></div>`;
     window.showModal(`<span class="chip gold">${safeText(c.flag)} ${safeText(c.country)}</span><h2>${safeText(c.course)}</h2><p class="lead" style="font-size:19px">${safeText(c.region)} · ${safeText(c.type)}</p><div class="media-grid">${coursePhotoBox(photoId)}${stableCourseMapBox(c.course,c.region,c.country)}</div>${details}<h3 style="margin-top:20px">Signature-Merkmal</h3><p class="lead" style="font-size:20px">${safeText(c.signature)}</p><button class="btn primary" onclick='toggleFav(event,${JSON.stringify(course)})'>★ Favorit umschalten</button>`);
