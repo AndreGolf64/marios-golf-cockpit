@@ -1840,5 +1840,202 @@ init();
 })();
 </script>
 
+
+<style id="world-course-photo-upgrade-css">
+.world-photo-loading{opacity:.9}
+.world-photo-chip.loading{border-color:rgba(97,242,162,.28);background:rgba(97,242,162,.10);color:#cffff0}
+.detail-map-embed{position:relative;aspect-ratio:16/10;border-radius:18px;overflow:hidden;background:#0b2418;box-shadow:inset 0 1px rgba(255,255,255,.1)}
+.detail-map-embed iframe{width:100%;height:100%;border:0;display:block}
+</style>
+<script id="world-course-photo-upgrade-js">
+(function(){
+  const MANUAL_WORLD_PLAYER_MEDIA = Object.create(null);
+  const MANUAL_COURSE_MEDIA = Object.create(null);
+  const originalResolvePlayerMedia = typeof window.resolvePlayerMedia === 'function' ? window.resolvePlayerMedia.bind(window) : null;
+  const originalResolveCourseMedia = typeof window.resolveCourseMedia === 'function' ? window.resolveCourseMedia.bind(window) : null;
+
+  function safeText(value){
+    if(typeof window.esc === 'function') return window.esc(value);
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function safeAttr(value){
+    if(typeof window.escapeAttr === 'function') return window.escapeAttr(value);
+    return safeText(value).replace(/`/g,'&#96;');
+  }
+  function norm(value){
+    return String(value||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').toLowerCase().replace(/^-+|-+$/g,'');
+  }
+  function initials(name){
+    const parts = String(name||'').trim().split(/\s+/).filter(Boolean);
+    if(!parts.length) return 'GF';
+    return (parts[0][0] + (parts.length>1 ? parts[parts.length-1][0] : '')).toUpperCase();
+  }
+  function googleImagesLink(query){ return typeof window.googleImagesUrl === 'function' ? window.googleImagesUrl(query) : ('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(query)); }
+  function googleWebLink(query){ return typeof window.googleWebUrl === 'function' ? window.googleWebUrl(query) : ('https://www.google.com/search?q=' + encodeURIComponent(query)); }
+  function searchQueryForPlayer(name, country){ return [name, 'golf', country||''].filter(Boolean).join(' '); }
+  function searchQueryForCourse(course, region, country){ return [course, region, country, 'golf course'].filter(Boolean).join(' '); }
+  function swissRecord(name){ return typeof window.swissPhotoRecord === 'function' ? window.swissPhotoRecord(name) : null; }
+  function worldManualRecord(name){ return MANUAL_WORLD_PLAYER_MEDIA[norm(name)] || null; }
+  function courseManualRecord(course){ return MANUAL_COURSE_MEDIA[norm(course)] || null; }
+  function playerCellHtml(name, avatarId, chipId){
+    const rec = swissRecord(name) || worldManualRecord(name);
+    const initialsText = safeText(initials(name));
+    const avatar = rec && rec.image
+      ? `<span id="${avatarId}" class="ranking-avatar" title="Foto: ${safeAttr(rec.source||'verifizierte Quelle')}"><img src="${safeAttr(rec.image)}" alt="${safeAttr(name)}" loading="lazy" referrerpolicy="no-referrer">${initialsText}</span>`
+      : `<span id="${avatarId}" class="ranking-avatar missing world-photo-loading" title="Foto wird gesucht">${initialsText}</span>`;
+    const chip = rec && rec.pageUrl
+      ? `<a id="${chipId}" class="photo-source-chip" href="${safeAttr(rec.pageUrl)}" target="_blank" rel="noopener">Fotoquelle</a>`
+      : `<span id="${chipId}" class="photo-source-chip world-photo-chip loading">Foto wird gesucht</span>`;
+    return `<div class="ranking-player-cell">${avatar}<div class="ranking-player-main"><b>${safeText(name)}</b>${chip}</div></div>`;
+  }
+  async function resolveEnhancedWorldPlayerMedia(name, country){
+    const fromSwiss = swissRecord(name);
+    if(fromSwiss && fromSwiss.image) return Object.assign({title:name}, fromSwiss);
+    const manual = worldManualRecord(name);
+    if(manual && manual.image) return Object.assign({title:name}, manual);
+    if(originalResolvePlayerMedia){
+      try{
+        const media = await originalResolvePlayerMedia(name, country);
+        if(media && media.image) return media;
+      }catch(err){ console.warn('World player media search failed', name, err); }
+    }
+    return {image:'', pageUrl:'', title:name, description:'', extract:'', source:''};
+  }
+  async function resolveEnhancedCourseMedia(course, country, region){
+    const manual = courseManualRecord(course);
+    if(manual && manual.image) return Object.assign({title:course}, manual);
+    if(originalResolveCourseMedia){
+      try{
+        const media = await originalResolveCourseMedia(course, country, region);
+        if(media && media.image) return media;
+      }catch(err){ console.warn('Course media search failed', course, err); }
+    }
+    return {image:'', pageUrl:'', title:course, description:'', extract:'', source:''};
+  }
+  function setAvatarLoaded(avatarEl, chipEl, name, media){
+    if(!avatarEl || !chipEl) return;
+    const initialsText = safeText(initials(name));
+    if(media && media.image){
+      avatarEl.classList.remove('missing','world-photo-loading');
+      avatarEl.title = 'Foto: ' + (media.source || 'Online-Quelle');
+      avatarEl.innerHTML = `<img src="${safeAttr(media.image)}" alt="${safeAttr(name)}" loading="lazy" referrerpolicy="no-referrer">${initialsText}`;
+      const img = avatarEl.querySelector('img');
+      if(img){
+        img.addEventListener('error', function(){
+          avatarEl.classList.add('missing');
+          avatarEl.innerHTML = initialsText;
+          chipEl.outerHTML = `<span id="${chipEl.id}" class="photo-source-chip" aria-label="Kein Foto verfügbar">Kein Foto verfügbar</span>`;
+        }, {once:true});
+      }
+      if(media.pageUrl){
+        chipEl.outerHTML = `<a id="${chipEl.id}" class="photo-source-chip" href="${safeAttr(media.pageUrl)}" target="_blank" rel="noopener">Fotoquelle</a>`;
+      } else {
+        chipEl.outerHTML = `<span id="${chipEl.id}" class="photo-source-chip">Foto gefunden</span>`;
+      }
+    } else {
+      avatarEl.classList.add('missing');
+      avatarEl.classList.remove('world-photo-loading');
+      avatarEl.innerHTML = initialsText;
+      chipEl.outerHTML = `<span id="${chipEl.id}" class="photo-source-chip" aria-label="Kein Foto verfügbar">Kein Foto verfügbar</span>`;
+    }
+  }
+  function hydrateWorldRankingPhotos(list){
+    (list||[]).forEach(function(d){
+      const baseId = 'world-photo-' + norm(d.player);
+      const avatarEl = document.getElementById(baseId + '-avatar');
+      const chipEl = document.getElementById(baseId + '-chip');
+      if(!avatarEl || !chipEl) return;
+      resolveEnhancedWorldPlayerMedia(d.player, d.country).then(function(media){
+        setAvatarLoaded(avatarEl, chipEl, d.player, media);
+      }).catch(function(){
+        setAvatarLoaded(avatarEl, chipEl, d.player, null);
+      });
+    });
+  }
+  function renderNoWorldPlayerPhoto(targetId, playerName, country){
+    const target = document.getElementById(targetId); if(!target) return;
+    const query = searchQueryForPlayer(playerName, country);
+    target.innerHTML = `<div class="media-frame player-photo"><div class="media-placeholder no-photo"><span class="chip gold">Spielerfoto</span><b>Kein Foto verfügbar</b><p>Für diese Spielerin bzw. diesen Spieler konnte trotz Mehrquellen-Suche kein eindeutig passendes Porträt eingebettet werden.</p></div></div><div class="media-caption"><span class="media-note">Verwendete Quellenstrategie: verifizierte Datenbank, Wikipedia, Wikimedia Commons und öffentliche Profil-/Suchquellen.</span><div class="media-links"><a class="media-link" href="${safeAttr(googleImagesLink(query))}" target="_blank" rel="noopener">🔎 Google Bilder öffnen</a><a class="media-link" href="${safeAttr(googleWebLink(query))}" target="_blank" rel="noopener">🌐 Google Suche öffnen</a></div></div>`;
+  }
+  function coursePhotoBox(id){
+    return `<div class="media-box"><div class="media-box-head"><span>Golfplatz-Foto</span><span class="chip">Live gesucht</span></div><div id="${id}" class="media-box-body"><div class="media-frame course-photo"><div class="media-placeholder"><div class="media-spinner"></div><b>Foto wird gesucht</b><p>Es wird online nach einem passenden Golfplatz-Foto gesucht.</p></div></div></div></div>`;
+  }
+  function renderNoCoursePhoto(targetId, course, region, country){
+    const target = document.getElementById(targetId); if(!target) return;
+    const query = searchQueryForCourse(course, region, country);
+    target.innerHTML = `<div class="media-frame course-photo"><div class="media-placeholder no-photo"><span class="chip gold">Golfplatz-Foto</span><b>Kein Foto verfügbar</b><p>Für diesen Golfplatz konnte trotz Mehrquellen-Suche kein eindeutig passendes Foto eingebettet werden.</p></div></div><div class="media-caption"><span class="media-note">Es wird bewusst kein Ersatzbild gezeigt, wenn kein eindeutig passendes Golfplatz-Foto verifiziert werden konnte.</span><div class="media-links"><a class="media-link" href="${safeAttr(googleImagesLink(query))}" target="_blank" rel="noopener">🔎 Google Bilder öffnen</a><a class="media-link" href="${safeAttr(googleWebLink(query))}" target="_blank" rel="noopener">🌐 Google Suche öffnen</a></div></div>`;
+  }
+  function mapsQuery(course, region, country){ return [course, region, country].filter(Boolean).join(', '); }
+  function detailMapSrc(course, region, country, mode){
+    const t = mode === 'map' ? 'm' : 'k';
+    return 'https://maps.google.com/maps?q=' + encodeURIComponent(mapsQuery(course, region, country)) + '&z=15&t=' + t + '&output=embed';
+  }
+  function stableCourseMapBox(course, region, country){
+    const id = 'detailMap_' + Math.random().toString(36).slice(2,10);
+    const openUrl = typeof window.mapsOpenUrl === 'function' ? window.mapsOpenUrl(course, region, country) : ('https://www.google.com/maps/search/' + encodeURIComponent(mapsQuery(course, region, country)));
+    return `<div class="media-box"><div class="media-box-head"><span>Platzplan / Lageübersicht</span><span class="chip green">Karte + Satellit</span></div><div class="media-box-body"><div class="course-map-toolbar"><div><span class="chip gold">Vollständige Einbettung</span><span class="layer-help"> Karte und Satellit werden als komplette Einbettung geladen</span></div><div class="map-layer-switch" role="group" aria-label="Kartenansicht umschalten"><button type="button" class="map-layer-btn" data-map-target="${id}" data-layer="map" onclick="switchDetailMapEmbed('${id}','map',this)">Karte</button><button type="button" class="map-layer-btn active" data-map-target="${id}" data-layer="sat" onclick="switchDetailMapEmbed('${id}','sat',this)">Satellit</button></div></div><div class="detail-map-embed"><iframe id="${id}" class="map-frame" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${safeAttr(detailMapSrc(course, region, country, 'sat'))}" data-map-src="${safeAttr(detailMapSrc(course, region, country, 'map'))}" data-sat-src="${safeAttr(detailMapSrc(course, region, country, 'sat'))}" title="Kartenübersicht ${safeAttr(course)}"></iframe></div><div class="media-caption"><span><strong>Karten-Übersicht:</strong> Die Detailkarte verwendet vollständige eingebettete Kartenansichten. Dadurch werden fragmentierte Kachelansichten vermieden.</span><div class="media-links"><a class="media-link" href="${safeAttr(openUrl)}" target="_blank" rel="noopener">🗺 Karte extern öffnen</a></div></div><div class="map-source-note"><b>Kartenquellen:</b> Google Maps Einbettung für Karte und Satellit. Für die Darstellung ist eine Internetverbindung erforderlich.</div></div></div>`;
+  }
+  window.switchDetailMapEmbed = function(id, mode, button){
+    const iframe = document.getElementById(id); if(!iframe) return;
+    const src = mode === 'map' ? iframe.dataset.mapSrc : iframe.dataset.satSrc;
+    if(src) iframe.src = src;
+    const group = document.querySelectorAll('[data-map-target="' + id + '"]');
+    group.forEach(btn => btn.classList.toggle('active', btn === button || btn.getAttribute('data-layer') === mode));
+  };
+
+  window.renderRanking = function(){
+    const term = (window.qs('#rankingSearch')?.value || '').toLowerCase().trim();
+    const country = window.qs('#rankingCountry')?.value || '';
+    const arr = (window.DATA?.[window.currentRanking] || []).filter(function(d){
+      return (!country || d.country===country) && (!term || (String(d.player)+' '+String(d.country)).toLowerCase().includes(term));
+    });
+    const body = window.qs('#rankingTable tbody'); if(!body) return;
+    body.innerHTML = arr.map(function(d){
+      const baseId = 'world-photo-' + norm(d.player);
+      return `<tr class="clickable-row" onclick='showPlayer(${JSON.stringify(window.currentRanking)},${JSON.stringify(d.rank)})'><td class="rank">${safeText(d.rank)}</td><td>${playerCellHtml(d.player, baseId + '-avatar', baseId + '-chip')}</td><td class="country">${safeText(d.country)}</td><td class="score">${typeof window.fmt === 'function' ? window.fmt(d.avg) : safeText(d.avg)}</td><td>${typeof window.fmt === 'function' ? window.fmt(d.total) : safeText(d.total)}</td><td>${safeText(d.events)}</td><td>${safeText(d.movement)}</td></tr>`;
+    }).join('');
+    hydrateWorldRankingPhotos(arr);
+  };
+
+  window.showPlayer = function(type, rank){
+    const d = (window.DATA?.[type] || []).find(function(x){ return x.rank===rank; }); if(!d) return;
+    const mediaId = 'worldPlayerMediaPanel';
+    const label = type==='men' ? 'OWGR Herren' : 'Rolex Damen';
+    const details = typeof window.worldPlayerDetails === 'function'
+      ? window.worldPlayerDetails(type, d)
+      : `<div class="detail-grid"><div class="detail"><span>Rang</span><b>#${safeText(d.rank)}</b></div><div class="detail"><span>Ø Punkte</span><b>${typeof window.fmt==='function'?window.fmt(d.avg):safeText(d.avg)}</b></div><div class="detail"><span>Total</span><b>${typeof window.fmt==='function'?window.fmt(d.total):safeText(d.total)}</b></div><div class="detail"><span>Events</span><b>${safeText(d.events)}</b></div></div>`;
+    window.showModal(`<div class="profile-title-row"><span class="chip gold">${safeText(label)}</span></div><h2>${safeText(d.player)}</h2><p class="lead" style="font-size:19px">${safeText(d.country)} · Rang ${safeText(d.rank)} · Ø ${typeof window.fmt==='function'?window.fmt(d.avg):safeText(d.avg)} Punkte</p><div class="media-grid">${window.playerMediaBox ? window.playerMediaBox(mediaId) : ''}<div><div class="modal-hero"></div>${details}</div></div>`);
+    resolveEnhancedWorldPlayerMedia(d.player, d.country).then(function(media){
+      if(media && media.image){
+        window.renderPhotoState(mediaId, media, d.player, '');
+      } else {
+        renderNoWorldPlayerPhoto(mediaId, d.player, d.country);
+      }
+    }).catch(function(){ renderNoWorldPlayerPhoto(mediaId, d.player, d.country); });
+  };
+
+  window.courseMapBox = stableCourseMapBox;
+  window.showCourse = function(course){
+    const c = (window.DATA?.courses || []).find(function(x){ return x.course===course; }); if(!c) return;
+    const photoId = 'coursePhotoPanel';
+    const details = `<div class="detail-grid"><div class="detail"><span>Löcher</span><b>${safeText(c.holes)}</b></div><div class="detail"><span>Par</span><b>${safeText(c.par)}</b></div><div class="detail"><span>Eröffnung</span><b>${safeText(c.opened)}</b></div><div class="detail"><span>Wow-Faktor</span><b>${safeText(c.wow)}/100</b></div><div class="detail"><span>Architekt</span><b style="font-size:16px">${safeText(c.architect)}</b></div><div class="detail"><span>Schwierigkeit</span><b>${safeText(c.difficulty)}/10</b></div><div class="detail"><span>Zugang</span><b style="font-size:16px">${safeText(c.access)}</b></div><div class="detail detail-source"><span>Quelle</span><b style="font-size:15px">${safeText(c.source)}</b></div></div>`;
+    window.showModal(`<span class="chip gold">${safeText(c.flag)} ${safeText(c.country)}</span><h2>${safeText(c.course)}</h2><p class="lead" style="font-size:19px">${safeText(c.region)} · ${safeText(c.type)}</p><div class="media-grid">${coursePhotoBox(photoId)}${stableCourseMapBox(c.course,c.region,c.country)}</div>${details}<h3 style="margin-top:20px">Signature-Merkmal</h3><p class="lead" style="font-size:20px">${safeText(c.signature)}</p><button class="btn primary" onclick='toggleFav(event,${JSON.stringify(course)})'>★ Favorit umschalten</button>`);
+    resolveEnhancedCourseMedia(c.course, c.country, c.region).then(function(media){
+      if(media && media.image){
+        window.renderPhotoState(photoId, media, c.course, '');
+      } else {
+        renderNoCoursePhoto(photoId, c.course, c.region, c.country);
+      }
+    }).catch(function(){ renderNoCoursePhoto(photoId, c.course, c.region, c.country); });
+  };
+
+  if(typeof window.renderAll === 'function'){
+    try{ window.renderAll(); }catch(err){ console.warn('World/course photo upgrade rerender failed', err); }
+  } else if(typeof window.renderRanking === 'function') {
+    try{ window.renderRanking(); }catch(err){}
+  }
+})();
+</script>
+
 </body>
 </html>
